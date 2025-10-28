@@ -1,0 +1,170 @@
+{% extends "layout/base.twig" %}
+
+{% block title %}{{ isEdit ? 'Edit' : 'Create' }} Ticket - Ticketrak{% endblock %}
+
+{% block content %}
+    <section style="padding: 60px 0">
+        <div class="container" style="max-width: 800px">
+            <div id="loadingState" style="padding: 60px 0; text-align: center; display: {{ isEdit ? 'block' : 'none' }}">
+                <span class="spinner" style="width: 40px; height: 40px"></span>
+                <p class="text-muted mt-2">Loading ticket...</p>
+            </div>
+
+            <div id="formContainer" style="display: {{ isEdit ? 'none' : 'block' }}">
+                <!-- Header -->
+                <div class="mb-4">
+                    <a href="/tickets" class="text-muted" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                        ← Back to Tickets
+                    </a>
+                    <h1 style="font-size: 40px; font-weight: 700; margin-bottom: 8px" id="formTitle">
+                        {{ isEdit ? 'Edit Ticket' : 'Create New Ticket' }}
+                    </h1>
+                    <p class="text-muted">
+                        {{ isEdit ? 'Update ticket details' : 'Fill in the details to create a new ticket' }}
+                    </p>
+                </div>
+
+                <!-- Form -->
+                <div class="card">
+                    <form id="ticketForm" novalidate>
+                        <input type="hidden" id="ticketId" value="{{ ticketId }}">
+
+                        <div class="form-group">
+                            <label for="title" class="form-label">
+                                Title <span style="color: var(--tertiary)">*</span>
+                            </label>
+                            <input type="text" id="title" class="form-input" placeholder="Enter ticket title" />
+                            <p id="error-title" class="form-error" style="display: none;" role="alert"></p>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="status" class="form-label">
+                                Status <span style="color: var(--tertiary)">*</span>
+                            </label>
+                            <select id="status" class="form-select">
+                                <option value="open">Open</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="closed">Closed</option>
+                            </select>
+                            <p id="error-status" class="form-error" style="display: none;" role="alert"></p>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="priority" class="form-label">Priority</label>
+                            <select id="priority" class="form-select">
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea id="description" class="form-textarea" placeholder="Provide details about the ticket" rows="6"></textarea>
+                            <p id="error-description" class="form-error" style="display: none;" role="alert"></p>
+                            <p class="text-muted" style="font-size: 14px; margin-top: 4px">
+                                <span id="charCount">0</span>/1000 characters
+                            </p>
+                        </div>
+
+                        <div style="display: flex; gap: 12px; justify-content: flex-end">
+                            <a href="/tickets" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                {{ isEdit ? 'Update Ticket' : 'Create Ticket' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Protect route
+    if (!isAuthenticated()) {
+        toast.error('Your session has expired — please log in again.');
+        window.location.href = '/auth/login';
+    }
+
+    const isEdit = {{ isEdit ? 'true' : 'false' }};
+    const ticketId = '{{ ticketId }}';
+    
+    const form = document.getElementById('ticketForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const descriptionEl = document.getElementById('description');
+    const charCountEl = document.getElementById('charCount');
+
+    // Character counter
+    descriptionEl.addEventListener('input', () => {
+        charCountEl.textContent = descriptionEl.value.length;
+    });
+
+    // Load ticket if editing
+    if (isEdit && ticketId) {
+        const ticket = getTicketById(ticketId);
+        if (ticket) {
+            document.getElementById('title').value = ticket.title;
+            document.getElementById('status').value = ticket.status;
+            document.getElementById('priority').value = ticket.priority || 'medium';
+            document.getElementById('description').value = ticket.description || '';
+            charCountEl.textContent = (ticket.description || '').length;
+            
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('formContainer').style.display = 'block';
+        } else {
+            toast.error('Ticket not found.');
+            window.location.href = '/tickets';
+        }
+    }
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        // Clear errors
+        document.querySelectorAll('.form-error').forEach(el => el.style.display = 'none');
+
+        const formData = {
+            title: document.getElementById('title').value,
+            status: document.getElementById('status').value,
+            description: document.getElementById('description').value,
+            priority: document.getElementById('priority').value
+        };
+
+        // Validate
+        const errors = validateTicket(formData);
+        if (hasErrors(errors)) {
+            Object.keys(errors).forEach(key => {
+                const errorEl = document.getElementById(`error-${key}`);
+                if (errorEl) {
+                    errorEl.textContent = errors[key];
+                    errorEl.style.display = 'block';
+                }
+            });
+            return;
+        }
+
+        // Disable submit
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner"></span>';
+
+        setTimeout(() => {
+            try {
+                if (isEdit) {
+                    updateTicket(ticketId, formData);
+                    toast.success('Ticket updated successfully.');
+                } else {
+                    createTicket(formData);
+                    toast.success('Ticket created successfully.');
+                }
+                window.location.href = '/tickets';
+            } catch (err) {
+                toast.error('Failed to save ticket. Please try again.');
+                submitBtn.disabled = false;
+                submitBtn.textContent = isEdit ? 'Update Ticket' : 'Create Ticket';
+            }
+        }, 300);
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends "auth/auth-layout.twig" %}
+
+{% block title %}Login - Ticketrak{% endblock %}
+
+{% block content %}
+    <div class="auth-container">
+        <div class="auth-card card">
+            <h1 class="auth-title">Welcome Back</h1>
+
+            <p id="generalError" class="form-error" style="margin-bottom: 16px; text-align: center; display: none;" role="alert"></p>
+
+            <form id="loginForm" novalidate>
+                <div class="form-group">
+                    <label for="email" class="form-label">Email Address</label>
+                    <input type="email" id="email" name="email" class="form-input" />
+                    <p id="error-email" class="form-error" style="display: none;" role="alert"></p>
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" id="password" name="password" class="form-input" />
+                    <p id="error-password" class="form-error" style="display: none;" role="alert"></p>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%" id="submitBtn">
+                    Login
+                </button>
+            </form>
+
+            <div class="auth-link">
+                Don't have an account? <a href="/auth/signup">Sign up</a>
+            </div>
+
+            <div class="mt-3" style="padding: 16px; background: var(--bg); border-radius: var(--radius); font-size: 14px">
+                <p class="text-muted" style="margin-bottom: 8px">Demo Credentials:</p>
+                <p style="font-family: monospace">Email: demo@ticket.app</p>
+                <p style="font-family: monospace">Password: password123</p>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Redirect if already logged in
+    if (isAuthenticated()) {
+        window.location.href = '/dashboard';
+    }
+
+    const form = document.getElementById('loginForm');
+    const submitBtn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // Clear previous errors
+        document.querySelectorAll('.form-error').forEach(el => el.style.display = 'none');
+        
+        const formData = {
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value
+        };
+
+        // Validate
+        const errors = validateLogin(formData);
+        if (hasErrors(errors)) {
+            Object.keys(errors).forEach(key => {
+                const errorEl = document.getElementById(`error-${key}`);
+                if (errorEl) {
+                    errorEl.textContent = errors[key];
+                    errorEl.style.display = 'block';
+                }
+            });
+            return;
+        }
+
+        // Disable submit button
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner"></span>';
+
+        // Simulate async
+        setTimeout(() => {
+            try {
+                const user = findUserByEmail(formData.email);
+                if (!user || user.password !== formData.password) {
+                    document.getElementById('generalError').textContent = 'Invalid email or password';
+                    document.getElementById('generalError').style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Login';
+                    return;
+                }
+
+                // Create session
+                const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                setSession(token, { id: user.id, name: user.name, email: user.email });
+
+                toast.success('Login successful! Welcome back.');
+                window.location.href = '/dashboard';
+            } catch (error) {
+                document.getElementById('generalError').textContent = error.message;
+                document.getElementById('generalError').style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Login';
+            }
+        }, 500);
+    });
+</script>
+{% endblock %}

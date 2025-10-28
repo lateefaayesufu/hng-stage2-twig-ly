@@ -1,0 +1,16 @@
+<footer class="footer">
+    <div class="container">
+        <div class="footer-content">
+            <p class="footer-text">
+                &copy; <span id="currentYear"></span> Ticketrak. Built with Twig for Stage 2 Frontend Task.
+            </p>
+            <p class="footer-text mt-1" style="font-size: 12px">
+                Multi-Framework Ticket Management System
+            </p>
+        </div>
+    </div>
+</footer>
+
+<script>
+    document.getElementById('currentYear').textContent = new Date().getFullYear();
+</script>

@@ -1,0 +1,100 @@
+{% extends "layout/base.twig" %}
+
+{% block title %}Dashboard - Ticketrak{% endblock %}
+
+{% block content %}
+    <section style="padding: 60px 0">
+        <div class="container">
+            <!-- Welcome Section -->
+            <div class="mb-4">
+                <h1 style="font-size: 40px; font-weight: 700; margin-bottom: 8px" id="welcomeText">
+                    Welcome back! 
+                </h1>
+                <p class="text-muted" style="font-size: 18px">
+                    Here's what's happening with your tickets today
+                </p>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="stats-grid" id="statsGrid">
+                <!-- Will be populated by JavaScript -->
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="mt-4">
+                <h2 style="font-size: 28px; font-weight: 700; margin-bottom: 24px">
+                    Quick Actions
+                </h2>
+
+                <div class="grid grid-2">
+                    <a href="/tickets/new" class="card" style="text-decoration: none">
+                        <div style="font-size: 40px; margin-bottom: 12px">➕</div>
+                        <h3 class="card-title">Create New Ticket</h3>
+                        <p class="card-description">
+                            Report a new issue or request and start tracking it immediately
+                        </p>
+                    </a>
+
+                    <a href="/tickets" class="card" style="text-decoration: none">
+                        <div style="font-size: 40px; margin-bottom: 12px">📋</div>
+                        <h3 class="card-title">View All Tickets</h3>
+                        <p class="card-description">
+                            Browse, search, and manage all your tickets in one place
+                        </p>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Protect route
+    if (!isAuthenticated()) {
+        toast.error('Your session has expired — please log in again.');
+        window.location.href = '/auth/login';
+    }
+
+    // Initialize demo data
+    initializeDemoData();
+
+    // Get user info
+    const session = getSession();
+    if (session && session.user) {
+        document.getElementById('welcomeText').textContent = `Welcome back, ${session.user.name}!`;
+    }
+
+    // Load stats
+    const stats = getTicketStats();
+    const statsGrid = document.getElementById('statsGrid');
+    
+    statsGrid.innerHTML = `
+        <div class="stat-card">
+            <div class="stat-value">${stats.total}</div>
+            <div class="stat-label">Total Tickets</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-value" style="background: linear-gradient(135deg, var(--status-open), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                ${stats.open}
+            </div>
+            <div class="stat-label">Open Tickets</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-value" style="background: linear-gradient(135deg, var(--status-in-progress), var(--tertiary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                ${stats.inProgress}
+            </div>
+            <div class="stat-label">In Progress</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-value" style="background: linear-gradient(135deg, var(--status-closed), var(--text-muted)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                ${stats.closed}
+            </div>
+            <div class="stat-label">Resolved Tickets</div>
+        </div>
+    `;
+</script>
+{% endblock %}

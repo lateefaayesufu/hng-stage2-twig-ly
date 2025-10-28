@@ -1,0 +1,124 @@
+{% extends "auth/auth-layout.twig" %}
+
+{% block title %}Sign Up - Ticketrak{% endblock %}
+
+{% block content %}
+    <div class="auth-container">
+        <div class="auth-card card">
+            <h1 class="auth-title">Create Account</h1>
+
+            <p id="generalError" class="form-error" style="margin-bottom: 16px; text-align: center; display: none;" role="alert"></p>
+
+            <form id="signupForm" novalidate>
+                <div class="form-group">
+                    <label for="name" class="form-label">Full Name</label>
+                    <input type="text" id="name" name="name" class="form-input" />
+                    <p id="error-name" class="form-error" style="display: none;" role="alert"></p>
+                </div>
+
+                <div class="form-group">
+                    <label for="email" class="form-label">Email Address</label>
+                    <input type="email" id="email" name="email" class="form-input" />
+                    <p id="error-email" class="form-error" style="display: none;" role="alert"></p>
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" id="password" name="password" class="form-input" />
+                    <p id="error-password" class="form-error" style="display: none;" role="alert"></p>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirmPassword" class="form-label">Confirm Password</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" class="form-input" />
+                    <p id="error-confirmPassword" class="form-error" style="display: none;" role="alert"></p>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%" id="submitBtn">
+                    Create Account
+                </button>
+            </form>
+
+            <div class="auth-link">
+                Already have an account? <a href="/auth/login">Login</a>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Redirect if already logged in
+    if (isAuthenticated()) {
+        window.location.href = '/dashboard';
+    }
+
+    const form = document.getElementById('signupForm');
+    const submitBtn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // Clear previous errors
+        document.querySelectorAll('.form-error').forEach(el => el.style.display = 'none');
+        
+        const formData = {
+            name: document.getElementById('name').value,
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value,
+            confirmPassword: document.getElementById('confirmPassword').value
+        };
+
+        // Validate
+        const errors = validateSignup(formData);
+        if (hasErrors(errors)) {
+            Object.keys(errors).forEach(key => {
+                const errorEl = document.getElementById(`error-${key}`);
+                if (errorEl) {
+                    errorEl.textContent = errors[key];
+                    errorEl.style.display = 'block';
+                }
+            });
+            return;
+        }
+
+        // Disable submit button
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner"></span>';
+
+        // Simulate async
+        setTimeout(() => {
+            try {
+                // Check if user exists
+                const existingUser = findUserByEmail(formData.email);
+                if (existingUser) {
+                    document.getElementById('generalError').textContent = 'An account with this email already exists';
+                    document.getElementById('generalError').style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Create Account';
+                    return;
+                }
+
+                // Create user
+                const newUser = addUser({
+                    name: formData.name,
+                    email: formData.email,
+                    password: formData.password
+                });
+
+                // Create session
+                const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                setSession(token, { id: newUser.id, name: newUser.name, email: newUser.email });
+
+                toast.success('Account created successfully! Welcome to Ticketrak.');
+                window.location.href = '/dashboard';
+            } catch (error) {
+                document.getElementById('generalError').textContent = error.message;
+                document.getElementById('generalError').style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Account';
+            }
+        }, 500);
+    });
+</script>
+{% endblock %}

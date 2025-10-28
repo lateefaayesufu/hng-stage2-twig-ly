@@ -1,0 +1,159 @@
+{% extends "layout/base.twig" %}
+
+{% block title %}Tickets - Ticketrak{% endblock %}
+
+{% block content %}
+    <section style="padding: 60px 0; min-height: calc(100vh - 200px)">
+        <div class="container">
+            <!-- Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-wrap: wrap; gap: 16px;">
+                <div>
+                    <h1 style="font-size: 40px; font-weight: 700; margin-bottom: 8px">Tickets</h1>
+                    <p class="text-muted" style="font-size: 18px">Manage and track all your tickets</p>
+                </div>
+                <a href="/tickets/new" class="btn btn-primary">+ Create Ticket</a>
+            </div>
+
+            <!-- Filters -->
+            <div id="filters" style="display: flex; gap: 12px; margin-bottom: 32px; flex-wrap: wrap"></div>
+
+            <!-- Tickets List -->
+            <div id="ticketsList"></div>
+        </div>
+    </section>
+
+    <!-- Delete Modal -->
+    <div id="deleteModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2 class="modal-title">Delete Ticket</h2>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this ticket? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeDeleteModal()" class="btn btn-secondary">Cancel</button>
+                <button onclick="confirmDelete()" class="btn btn-danger">Delete</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Protect route
+    if (!isAuthenticated()) {
+        toast.error('Your session has expired — please log in again.');
+        window.location.href = '/auth/login';
+    }
+
+    let currentFilter = 'all';
+    let deleteTicketId = null;
+
+    function loadTickets() {
+        const tickets = getTickets();
+        const filtered = currentFilter === 'all' ? tickets : tickets.filter(t => t.status === currentFilter);
+
+        // Update filters
+        const filtersHtml = `
+            <button onclick="setFilter('all')" class="btn ${currentFilter === 'all' ? 'btn-primary' : 'btn-secondary'} btn-small">All (${tickets.length})</button>
+            <button onclick="setFilter('open')" class="btn ${currentFilter === 'open' ? 'btn-primary' : 'btn-secondary'} btn-small">Open (${tickets.filter(t => t.status === 'open').length})</button>
+            <button onclick="setFilter('in_progress')" class="btn ${currentFilter === 'in_progress' ? 'btn-primary' : 'btn-secondary'} btn-small">In Progress (${tickets.filter(t => t.status === 'in_progress').length})</button>
+            <button onclick="setFilter('closed')" class="btn ${currentFilter === 'closed' ? 'btn-primary' : 'btn-secondary'} btn-small">Closed (${tickets.filter(t => t.status === 'closed').length})</button>
+        `;
+        document.getElementById('filters').innerHTML = filtersHtml;
+
+        // Update list
+        const listEl = document.getElementById('ticketsList');
+        
+        if (filtered.length === 0) {
+            listEl.innerHTML = `
+                <div class="card text-center" style="padding: 80px 20px">
+                    <div style="font-size: 64px; margin-bottom: 24px">📋</div>
+                    <h3 style="font-size: 28px; font-weight: 700; margin-bottom: 12px">No tickets found</h3>
+                    <p class="text-muted mb-3" style="font-size: 18px">
+                        ${currentFilter === 'all' ? 'Create your first ticket to get started' : `No tickets with status "${currentFilter.replace('_', ' ')}"`}
+                    </p>
+                    ${currentFilter === 'all' ? '<a href="/tickets/new" class="btn btn-primary">Create Your First Ticket</a>' : ''}
+                </div>
+            `;
+        } else {
+            listEl.innerHTML = `<div class="ticket-list">${filtered.map(renderTicket).join('')}</div>`;
+        }
+    }
+
+    function renderTicket(ticket) {
+        const date = new Date(ticket.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const priorityColor = ticket.priority === 'high' ? 'var(--tertiary)' : ticket.priority === 'medium' ? 'var(--status-in-progress)' : 'var(--text-muted)';
+        
+        return `
+            <div class="ticket-card">
+                <div class="ticket-info">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;">
+                        <h3 class="ticket-title">${ticket.title}</h3>
+                        <span class="status-badge status-${ticket.status}">${ticket.status.replace('_', ' ')}</span>
+                    </div>
+                    ${ticket.description ? `<p class="text-muted" style="font-size: 15px; margin-bottom: 16px; line-height: 1.6">${ticket.description.substring(0, 150)}${ticket.description.length > 150 ? '...' : ''}</p>` : ''}
+                    <div class="ticket-meta">
+                        <span>📅 ${date}</span>
+                        ${ticket.priority ? `<span style="text-transform: capitalize; color: ${priorityColor}">🎯 ${ticket.priority}</span>` : ''}
+                    </div>
+                </div>
+                <div class="ticket-actions" style="display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap;">
+                    <select onchange="updateStatus('${ticket.id}', this.value)" class="form-select" style="width: 150px; padding: 8px 12px; font-size: 14px">
+                        <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>Open</option>
+                        <option value="in_progress" ${ticket.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                        <option value="closed" ${ticket.status === 'closed' ? 'selected' : ''}>Closed</option>
+                    </select>
+                    <a href="/tickets/${ticket.id}" class="btn btn-secondary btn-small">✏️ Edit</a>
+                    <button onclick="showDeleteModal('${ticket.id}')" class="btn btn-danger btn-small">🗑️ Delete</button>
+                </div>
+            </div>
+        `;
+    }
+
+    function setFilter(filter) {
+        currentFilter = filter;
+        loadTickets();
+    }
+
+    function updateStatus(id, status) {
+        try {
+            updateTicket(id, { status });
+            toast.success('Ticket status updated.');
+            loadTickets();
+        } catch (err) {
+            toast.error('Failed to update ticket status.');
+        }
+    }
+
+    function showDeleteModal(id) {
+        deleteTicketId = id;
+        document.getElementById('deleteModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeDeleteModal() {
+        deleteTicketId = null;
+        document.getElementById('deleteModal').style.display = 'none';
+        document.body.style.overflow = 'unset';
+    }
+
+    function confirmDelete() {
+        try {
+            deleteTicket(deleteTicketId);
+            toast.success('Ticket deleted successfully.');
+            loadTickets();
+            closeDeleteModal();
+        } catch (err) {
+            toast.error('Failed to delete ticket.');
+        }
+    }
+
+    // Close modal on overlay click
+    document.getElementById('deleteModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeDeleteModal();
+    });
+
+    // Load on init
+    loadTickets();
+</script>
+{% endblock %}

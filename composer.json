@@ -1,0 +1,15 @@
+{
+  "name": "ticketrak/ticketrak",
+  "description": "for ticket management",
+  "type": "project",
+  "license": "MIT",
+  "minimum-stability": "stable",
+  "autoload": {
+    "psr-4": {
+      "TicketFlow\\": "src/"
+    }
+  },
+  "require": {
+    "twig/twig": "^3.21"
+  }
+}
